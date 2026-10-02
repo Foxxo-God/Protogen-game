@@ -10,7 +10,7 @@ Requires Python 3, Clang with ARM target support, and Make:
 make
 ```
 
-The resulting ROM is `build/protogen-frontier.gba`. Open it in a GBA emulator configured to skip the BIOS boot animation.
+The resulting ROM is `build/protogen-frontier.gba`. Open it in a Game Boy Advance emulator.
 
 ## Controls
 

@@ -14,6 +14,15 @@ OUTPUT = ROOT / "build" / "protogen-frontier.gba"
 ROM_BASE = 0x08000000
 ROM_CODE_OFFSET = 0xC0
 BSS_BASE = 0x02000000
+GBA_BOOT_LOGO = bytes.fromhex(
+    "24ffae51699aa2213d84820a84e409ad11248b98c0817f21"
+    "a352be199309ce2010464a4af82731ec58c7e83382e3cebf"
+    "85f4df94ce4b09c194568ac01372a7fc9f844d73a3ca9a61"
+    "5897a327fc039876231dc7610304ae56bf38840040a70efd"
+    "ff52fe036f9530f197fbc08560d68025a963be03014e38e2"
+    "f9a234ffbb3e0344780090cb88113a9465c07c6387f03caf"
+    "d625e48b380aac7221d4f807"
+)
 
 
 def unpack_from(fmt, data, offset):
@@ -59,6 +68,8 @@ def align(value, boundary):
 
 
 def build_rom(object_path):
+    if len(GBA_BOOT_LOGO) != 0x9C:
+        raise ValueError("The GBA cartridge logo field must be exactly 156 bytes")
     data, sections, c_string = read_elf(object_path)
     placements = {}
     rom_sections = [s for s in sections if s["name"] == ".text.startup"]
@@ -154,6 +165,7 @@ def build_rom(object_path):
 
     rom = bytearray(ROM_CODE_OFFSET)
     struct.pack_into("<I", rom, 0, 0xEA00002E)
+    rom[0x04:0xA0] = GBA_BOOT_LOGO
     rom[0xA0:0xAC] = b"PROTOGEN FRT"
     rom[0xAC:0xB0] = b"PGEN"
     rom[0xB0:0xB2] = b"00"
