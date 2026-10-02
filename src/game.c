@@ -126,7 +126,7 @@ static void wait_vblank(void) {
 
 static void start_frame(void) {
     screen = frame_page ? SCREEN1 : SCREEN0;
-    u32 *words = (u32 *)screen;
+    volatile u32 *words = (volatile u32 *)screen;
     u32 fill = 0x01010101;
     for (u32 i = 0; i < 9600; i++) words[i] = fill;
     for (s32 x = 0; x < SCREEN_W; x += 20)
