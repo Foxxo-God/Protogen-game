@@ -8,7 +8,6 @@ typedef signed int s32;
 #define REG_KEYINPUT (*(volatile u16 *)0x04000130)
 #define BG_PALETTE ((volatile u16 *)0x05000000)
 #define SCREEN0 ((volatile u16 *)0x06000000)
-#define SCREEN1 ((volatile u16 *)0x0600A000)
 #define KEY_A 0x0001
 #define KEY_B 0x0002
 #define KEY_SELECT 0x0004
@@ -51,7 +50,6 @@ static Shot shots[MAX_SHOTS];
 static Shot hostile[MAX_HOSTILE];
 static const u16 visor_colors[5] = { 0x5fda, 0x7f15, 0x5d9f, 0x3fff, 0x7c1f };
 static volatile u16 *screen;
-static u16 frame_page;
 static u16 frame_count;
 static u16 keys_previous;
 static u16 color_choice;
@@ -127,9 +125,10 @@ static void wait_vblank(void) {
 }
 
 static void start_frame(void) {
-    screen = frame_page ? SCREEN1 : SCREEN0;
+    screen = SCREEN0;
     volatile u32 *words = (volatile u32 *)screen;
-    u32 fill = 0x01010101;
+    u16 background = BG_PALETTE[1];
+    u32 fill = (u32)background | ((u32)background << 16);
     for (u32 i = 0; i < 9600; i++) words[i] = fill;
     for (s32 x = 0; x < SCREEN_W; x += 20)
         for (s32 y = 0; y < SCREEN_H; y++) pixel(x, y, 2);
@@ -144,18 +143,12 @@ static void start_frame(void) {
 
 static void finish_frame(void) {
     wait_vblank();
-    REG_DISPCNT = (u16)(0x0404 | (frame_page ? 0x0010 : 0));
-    frame_page ^= 1;
+    REG_DISPCNT = 0x0403;
 }
 
 static void pixel(s32 x, s32 y, u16 color) {
-    if ((u32)x < SCREEN_W && (u32)y < SCREEN_H) {
-        u32 index = (u32)y * SCREEN_W + (u32)x;
-        volatile u16 *pair = &screen[index >> 1];
-        u16 value = *pair;
-        *pair = (index & 1) ? (u16)((value & 0x00ff) | (color << 8))
-                            : (u16)((value & 0xff00) | color);
-    }
+    if ((u32)x < SCREEN_W && (u32)y < SCREEN_H)
+        screen[(u32)y * SCREEN_W + (u32)x] = BG_PALETTE[color];
 }
 
 static void rect(s32 x, s32 y, s32 w, s32 h, u16 color) {
@@ -164,21 +157,10 @@ static void rect(s32 x, s32 y, s32 w, s32 h, u16 color) {
     if (x + w > SCREEN_W) w = SCREEN_W - x;
     if (y + h > SCREEN_H) h = SCREEN_H - y;
     if (w <= 0 || h <= 0) return;
-    u16 pair_color = (u16)(color | (color << 8));
+    u16 fill_color = BG_PALETTE[color];
     for (s32 row = y; row < y + h; row++) {
-        s32 start = x;
-        s32 end = x + w;
-        volatile u16 *dest = &screen[row * (SCREEN_W / 2) + (start >> 1)];
-        if (start & 1) {
-            *dest = (u16)((*dest & 0x00ff) | (color << 8));
-            dest++;
-            start++;
-        }
-        while (start + 1 < end) {
-            *dest++ = pair_color;
-            start += 2;
-        }
-        if (start < end) *dest = (u16)((*dest & 0xff00) | color);
+        volatile u16 *dest = &screen[row * SCREEN_W + x];
+        for (s32 col = 0; col < w; col++) *dest++ = fill_color;
     }
 }
 
@@ -552,7 +534,7 @@ static void draw_game(void) {
 }
 
 void game_main(void) {
-    REG_DISPCNT = 0x0404;
+    REG_DISPCNT = 0x0403;
     set_palette();
     player_x = 120; player_y = 90;
     aim_x = 1; aim_y = 0;
