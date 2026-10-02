@@ -7,8 +7,8 @@ typedef signed int s32;
 #define REG_DISPSTAT (*(volatile u16 *)0x04000004)
 #define REG_KEYINPUT (*(volatile u16 *)0x04000130)
 #define BG_PALETTE ((volatile u16 *)0x05000000)
-#define SCREEN0 ((volatile u8 *)0x06000000)
-#define SCREEN1 ((volatile u8 *)0x0600A000)
+#define SCREEN0 ((volatile u16 *)0x06000000)
+#define SCREEN1 ((volatile u16 *)0x0600A000)
 #define KEY_A 0x0001
 #define KEY_B 0x0002
 #define KEY_SELECT 0x0004
@@ -50,7 +50,7 @@ static Enemy enemies[MAX_ENEMIES];
 static Shot shots[MAX_SHOTS];
 static Shot hostile[MAX_HOSTILE];
 static const u16 visor_colors[5] = { 0x5fda, 0x7f15, 0x5d9f, 0x3fff, 0x7c1f };
-static volatile u8 *screen;
+static volatile u16 *screen;
 static u16 frame_page;
 static u16 frame_count;
 static u16 keys_previous;
@@ -81,6 +81,8 @@ static u16 hostile_live;
 static char score_text[5];
 static const u16 score_places[4] = { 1000, 100, 10, 1 };
 static const char wave_text[10][3] = { "01", "02", "03", "04", "05", "06", "07", "08", "09", "10" };
+static void pixel(s32 x, s32 y, u16 color);
+static void rect(s32 x, s32 y, s32 w, s32 h, u16 color);
 
 static const u8 font[43][5] = {
     {2,5,7,5,5}, {6,5,6,5,6}, {3,4,4,4,3}, {6,5,5,5,6}, {7,4,6,4,7},
@@ -130,13 +132,13 @@ static void start_frame(void) {
     u32 fill = 0x01010101;
     for (u32 i = 0; i < 9600; i++) words[i] = fill;
     for (s32 x = 0; x < SCREEN_W; x += 20)
-        for (s32 y = 0; y < SCREEN_H; y++) screen[y * SCREEN_W + x] = 2;
+        for (s32 y = 0; y < SCREEN_H; y++) pixel(x, y, 2);
     for (s32 y = 0; y < SCREEN_H; y += 20)
-        for (s32 x = 0; x < SCREEN_W; x++) screen[y * SCREEN_W + x] = 2;
+        rect(0, y, SCREEN_W, 1, 2);
     for (s32 i = 0; i < 12; i++) {
         s32 x = (i * 73 + 19) % SCREEN_W;
         s32 y = (i * 41 + 17) % SCREEN_H;
-        screen[y * SCREEN_W + x] = 3;
+        pixel(x, y, 3);
     }
 }
 
@@ -147,7 +149,13 @@ static void finish_frame(void) {
 }
 
 static void pixel(s32 x, s32 y, u16 color) {
-    if ((u32)x < SCREEN_W && (u32)y < SCREEN_H) screen[y * SCREEN_W + x] = color;
+    if ((u32)x < SCREEN_W && (u32)y < SCREEN_H) {
+        u32 index = (u32)y * SCREEN_W + (u32)x;
+        volatile u16 *pair = &screen[index >> 1];
+        u16 value = *pair;
+        *pair = (index & 1) ? (u16)((value & 0x00ff) | (color << 8))
+                            : (u16)((value & 0xff00) | color);
+    }
 }
 
 static void rect(s32 x, s32 y, s32 w, s32 h, u16 color) {
@@ -156,8 +164,22 @@ static void rect(s32 x, s32 y, s32 w, s32 h, u16 color) {
     if (x + w > SCREEN_W) w = SCREEN_W - x;
     if (y + h > SCREEN_H) h = SCREEN_H - y;
     if (w <= 0 || h <= 0) return;
-    for (s32 row = y; row < y + h; row++)
-        for (s32 col = x; col < x + w; col++) screen[row * SCREEN_W + col] = color;
+    u16 pair_color = (u16)(color | (color << 8));
+    for (s32 row = y; row < y + h; row++) {
+        s32 start = x;
+        s32 end = x + w;
+        volatile u16 *dest = &screen[row * (SCREEN_W / 2) + (start >> 1)];
+        if (start & 1) {
+            *dest = (u16)((*dest & 0x00ff) | (color << 8));
+            dest++;
+            start++;
+        }
+        while (start + 1 < end) {
+            *dest++ = pair_color;
+            start += 2;
+        }
+        if (start < end) *dest = (u16)((*dest & 0xff00) | color);
+    }
 }
 
 static void line(s32 x0, s32 y0, s32 x1, s32 y1, u16 color) {
