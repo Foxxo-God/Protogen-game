@@ -10,7 +10,7 @@ Requires Python 3, Clang with ARM target support, and Make:
 make
 ```
 
-The resulting ROM is `build/protogen-frontier.gba`. Open it in a Game Boy Advance emulator.
+The resulting ROM is `build/protogen-frontier-v2.gba`. Open it in a Game Boy Advance emulator.
 
 ## Controls
 

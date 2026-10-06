@@ -1,8 +1,8 @@
 .PHONY: all clean
 
-all: build/protogen-frontier.gba
+all: build/protogen-frontier-v2.gba
 
-build/protogen-frontier.gba: src/game.c build_rom.py
+build/protogen-frontier-v2.gba: src/game.c build_rom.py
 	python3 build_rom.py
 
 clean:

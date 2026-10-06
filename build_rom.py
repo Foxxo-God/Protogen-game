@@ -10,7 +10,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 SOURCE = ROOT / "src" / "game.c"
-OUTPUT = ROOT / "build" / "protogen-frontier.gba"
+OUTPUT = ROOT / "build" / "protogen-frontier-v2.gba"
 ROM_BASE = 0x08000000
 ROM_CODE_OFFSET = 0xC0
 BSS_BASE = 0x02000000
